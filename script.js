@@ -58,6 +58,20 @@ class SpeechToTextApp {
         this.selectedTextDisplay = document.getElementById('selected-text');
         this.copyTextButton = document.getElementById('copy-text-button');
 
+        // Restore saved model from localStorage if present and valid, otherwise use default
+        try {
+            const savedModel = localStorage.getItem('whisper_selected_model');
+            if (savedModel) {
+                const optionExists = Array.from(this.modelSelect.options).some(opt => opt.value === savedModel);
+                if (optionExists) {
+                    this.currentModelName = savedModel;
+                }
+            }
+        } catch (e) {
+            // ignore storage errors (e.g., private mode)
+            console.warn('localStorage not available:', e);
+        }
+
         // Make selected model in dropdown match current model
         this.modelSelect.value = this.currentModelName;
         
@@ -99,6 +113,12 @@ class SpeechToTextApp {
         const newModelName = this.modelSelect.value;
         if (newModelName !== this.currentModelName) {
             this.currentModelName = newModelName;
+            // Persist the user's model choice so it survives reloads
+            try {
+                localStorage.setItem('whisper_selected_model', newModelName);
+            } catch (e) {
+                console.warn('Could not persist model selection to localStorage:', e);
+            }
             this.isModelLoaded = false;
             this.pipe = null;
             await this.initializeModel();
