@@ -420,7 +420,7 @@ class SpeechToTextApp {
     onTextSelection() {
         const selectedIndex = this.testTextSelect.value;
         if (selectedIndex === '') {
-            this.selectedTextDisplay.innerHTML = '<p class="placeholder-text">Yukarıdan bir metin seçin ve yüksek sesle okuyun. Ses tanıma sistemini test etmek için mükemmel!</p>';
+            this.selectedTextDisplay.innerHTML = '<p class="placeholder-text">Yukarıdan bir metin seçin ve yüksek sesle okuyun.</p>';
             this.copyTextButton.style.display = 'none';
         } else {
             const selectedText = this.turkishTexts[parseInt(selectedIndex)];
