@@ -81,7 +81,6 @@ body {
 }
 
 /* Section styles */
-.language-selection-section,
 .controls-section,
 .test-text-section,
 .transcription-section {
@@ -99,7 +98,6 @@ body {
     overflow: hidden;
 }
 
-.language-selection-section::before,
 .controls-section::before,
 .test-text-section::before,
 .transcription-section::before {
@@ -118,26 +116,6 @@ body {
     font-size: 1.3rem;
     margin-bottom: 1rem;
     font-family: 'Inter', sans-serif;
-}
-
-/* Language selection styles */
-.language-select {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    font-family: 'Inter', sans-serif;
-    background: white;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: 0.5rem;
-}
-
-.language-select:focus {
-    outline: none;
-    border-color: #74b9ff;
-    box-shadow: 0 0 0 3px rgba(116, 185, 255, 0.1);
 }
 
 /* Speech button styles */

@@ -40,7 +40,6 @@ class LiveSpeechApp {
         this.statusDot = document.querySelector('.status-dot');
         this.statusText = document.querySelector('.status-text');
         this.buttonText = document.querySelector('.button-text');
-        this.languageSelect = document.getElementById('language-select');
         this.testTextSelect = document.getElementById('test-text-select');
         this.selectedTextDisplay = document.getElementById('selected-text');
         this.copyTextButton = document.getElementById('copy-text-button');
@@ -49,12 +48,8 @@ class LiveSpeechApp {
         this.wordCount = document.getElementById('word-count');
         this.diffComparison = document.getElementById('diff-comparison');
 
-        // Set default language
-        this.languageSelect.value = this.currentLanguage;
-        
         // Event listeners
         this.speechButton.addEventListener('click', () => this.toggleSpeechRecognition());
-        this.languageSelect.addEventListener('change', () => this.onLanguageChange());
         this.testTextSelect.addEventListener('change', () => this.onTextSelection());
         this.copyTextButton.addEventListener('click', () => this.copySelectedText());
         this.clearButton.addEventListener('click', () => this.clearTranscription());
@@ -192,24 +187,6 @@ class LiveSpeechApp {
         }
     }
     
-    onLanguageChange() {
-        const newLanguage = this.languageSelect.value;
-        if (newLanguage !== this.currentLanguage) {
-            this.currentLanguage = newLanguage;
-            
-            if (this.recognition) {
-                this.recognition.lang = this.currentLanguage;
-            }
-            
-            // Save language preference
-            try {
-                localStorage.setItem('live_speech_language', newLanguage);
-            } catch (e) {
-                console.warn('Could not save language preference:', e);
-            }
-        }
-    }
-    
     onTextSelection() {
         const selectedIndex = this.testTextSelect.value;
         if (selectedIndex === '') {
@@ -284,8 +261,9 @@ class LiveSpeechApp {
     }
     
     generateDiffHtml(original, transcribed) {
-        // Normalize text: remove punctuation and convert to lowercase
-        const normalizePunctuation = (text) => text.toLowerCase().replace(/[.,;:!?'"()[\]{}\-–—]/g, '').replace(/\s+/g, ' ').trim();
+        // Normalize text: remove punctuation and convert to Turkish lowercase
+        const toTurkishLowerCase = (text) => text.replace(/İ/g, 'i').replace(/I/g, 'ı').toLowerCase();
+        const normalizePunctuation = (text) => toTurkishLowerCase(text).replace(/[.,;:!?'"()[\]{}\-–—]/g, '').replace(/\s+/g, ' ').trim();
         
         const originalWords = normalizePunctuation(original).split(/\s+/);
         const transcribedWords = normalizePunctuation(transcribed).split(/\s+/);
@@ -351,8 +329,9 @@ class LiveSpeechApp {
     }
     
     calculateAccuracyPercentage(original, transcribed) {
-        // Normalize both texts for comparison (lowercase, remove punctuation and extra spaces)
-        const normalizeText = (text) => text.toLowerCase().replace(/[.,;:!?'"()[\]{}\-–—]/g, '').replace(/\s+/g, ' ').trim();
+        // Normalize both texts for comparison (Turkish lowercase, remove punctuation and extra spaces)
+        const toTurkishLowerCase = (text) => text.replace(/İ/g, 'i').replace(/I/g, 'ı').toLowerCase();
+        const normalizeText = (text) => toTurkishLowerCase(text).replace(/[.,;:!?'"()[\]{}\-–—]/g, '').replace(/\s+/g, ' ').trim();
         const originalNormalized = normalizeText(original);
         const transcribedNormalized = normalizeText(transcribed);
         
@@ -410,22 +389,5 @@ document.addEventListener('DOMContentLoaded', () => {
 navigator.permissions.query({ name: 'microphone' }).then((result) => {
     if (result.state === 'denied') {
         console.warn('Microphone permission denied');
-    }
-});
-
-// Restore language preference
-document.addEventListener('DOMContentLoaded', () => {
-    try {
-        const savedLanguage = localStorage.getItem('live_speech_language');
-        if (savedLanguage) {
-            const languageSelect = document.getElementById('language-select');
-            if (languageSelect && Array.from(languageSelect.options).some(opt => opt.value === savedLanguage)) {
-                languageSelect.value = savedLanguage;
-                // Trigger change event to update the app
-                languageSelect.dispatchEvent(new Event('change'));
-            }
-        }
-    } catch (e) {
-        console.warn('Could not restore language preference:', e);
     }
 });

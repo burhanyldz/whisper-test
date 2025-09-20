@@ -377,8 +377,9 @@ class SpeechToTextApp {
     }
     
     generateDiffHtml(original, transcribed) {
-        // Normalize text: remove punctuation and convert to lowercase
-        const normalizePunctuation = (text) => text.toLowerCase().replace(/[.,;:!?'"()[\]{}\-–—]/g, '').replace(/\s+/g, ' ').trim();
+        // Normalize text: remove punctuation and convert to Turkish lowercase
+        const toTurkishLowerCase = (text) => text.replace(/İ/g, 'i').replace(/I/g, 'ı').toLowerCase();
+        const normalizePunctuation = (text) => toTurkishLowerCase(text).replace(/[.,;:!?'"()[\]{}\-–—]/g, '').replace(/\s+/g, ' ').trim();
         
         const originalWords = normalizePunctuation(original).split(/\s+/);
         const transcribedWords = normalizePunctuation(transcribed).split(/\s+/);
@@ -444,8 +445,9 @@ class SpeechToTextApp {
     }
     
     calculateAccuracyPercentage(original, transcribed) {
-        // Normalize both texts for comparison (lowercase, remove punctuation and extra spaces)
-        const normalizeText = (text) => text.toLowerCase().replace(/[.,;:!?'"()[\]{}\-–—]/g, '').replace(/\s+/g, ' ').trim();
+        // Normalize both texts for comparison (Turkish lowercase, remove punctuation and extra spaces)
+        const toTurkishLowerCase = (text) => text.replace(/İ/g, 'i').replace(/I/g, 'ı').toLowerCase();
+        const normalizeText = (text) => toTurkishLowerCase(text).replace(/[.,;:!?'"()[\]{}\-–—]/g, '').replace(/\s+/g, ' ').trim();
         const originalNormalized = normalizeText(original);
         const transcribedNormalized = normalizeText(transcribed);
         
