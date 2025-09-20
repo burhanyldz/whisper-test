@@ -44,6 +44,7 @@ class LiveSpeechApp {
         this.selectedTextDisplay = document.getElementById('selected-text');
         this.copyTextButton = document.getElementById('copy-text-button');
         this.clearButton = document.getElementById('clear-button');
+        this.cleanRepetitionsButton = document.getElementById('clean-repetitions-button');
         this.compareButton = document.getElementById('compare-button');
         this.wordCount = document.getElementById('word-count');
         this.diffComparison = document.getElementById('diff-comparison');
@@ -53,6 +54,7 @@ class LiveSpeechApp {
         this.testTextSelect.addEventListener('change', () => this.onTextSelection());
         this.copyTextButton.addEventListener('click', () => this.copySelectedText());
         this.clearButton.addEventListener('click', () => this.clearTranscription());
+        this.cleanRepetitionsButton.addEventListener('click', () => this.cleanCurrentTranscription());
         this.compareButton.addEventListener('click', () => this.compareWithSelectedText());
     }
     
@@ -75,6 +77,16 @@ class LiveSpeechApp {
         this.recognition.lang = this.currentLanguage;
         this.recognition.maxAlternatives = 1;
         
+        // Mobile-specific settings
+        if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            // Shorter timeout for mobile devices
+            this.recognition.continuous = false; // Better for mobile
+        }
+        
+        // Auto-restart functionality for mobile
+        this.autoRestartEnabled = false;
+        this.restartTimeout = null;
+        
         // Event handlers
         this.recognition.onstart = () => {
             this.isListening = true;
@@ -84,17 +96,27 @@ class LiveSpeechApp {
         };
         
         this.recognition.onresult = (event) => {
-            this.interimTranscript = '';
+            let newInterimTranscript = '';
+            let newFinalTranscript = '';
             
             for (let i = event.resultIndex; i < event.results.length; i++) {
-                const transcript = event.results[i][0].transcript;
+                const transcript = event.results[i][0].transcript.trim();
                 
                 if (event.results[i].isFinal) {
-                    this.finalTranscript += transcript + ' ';
+                    // Avoid duplicating text that's already in finalTranscript
+                    if (!this.finalTranscript.includes(transcript)) {
+                        newFinalTranscript += transcript + ' ';
+                    }
                 } else {
-                    this.interimTranscript += transcript;
+                    newInterimTranscript += transcript;
                 }
             }
+            
+            // Update transcripts
+            if (newFinalTranscript) {
+                this.finalTranscript += newFinalTranscript;
+            }
+            this.interimTranscript = newInterimTranscript;
             
             this.updateTranscriptionDisplay();
         };
@@ -124,6 +146,24 @@ class LiveSpeechApp {
         
         this.recognition.onend = () => {
             this.isListening = false;
+            
+            // Clear any pending restart timeout
+            if (this.restartTimeout) {
+                clearTimeout(this.restartTimeout);
+                this.restartTimeout = null;
+            }
+            
+            // Auto-restart if enabled and user hasn't manually stopped
+            if (this.autoRestartEnabled && this.speechButton.classList.contains('listening')) {
+                this.restartTimeout = setTimeout(() => {
+                    if (this.autoRestartEnabled) {
+                        console.log('Auto-restarting speech recognition...');
+                        this.startListening();
+                    }
+                }, 100); // Short delay before restart
+                return;
+            }
+            
             this.resetSpeechButton();
             
             if (this.finalTranscript.trim()) {
@@ -147,9 +187,21 @@ class LiveSpeechApp {
             return;
         }
         
-        if (this.isListening) {
-            this.recognition.stop();
+        if (this.isListening || this.autoRestartEnabled) {
+            // Stop listening and disable auto-restart
+            this.autoRestartEnabled = false;
+            if (this.restartTimeout) {
+                clearTimeout(this.restartTimeout);
+                this.restartTimeout = null;
+            }
+            if (this.recognition && this.isListening) {
+                this.recognition.stop();
+            } else {
+                this.resetSpeechButton();
+            }
         } else {
+            // Start listening and enable auto-restart for mobile
+            this.autoRestartEnabled = true;
             this.startListening();
         }
     }
@@ -167,10 +219,23 @@ class LiveSpeechApp {
         this.speechButton.classList.remove('listening');
         this.buttonText.textContent = 'Dinlemeyi Başlat';
         this.isListening = false;
+        this.autoRestartEnabled = false;
+        
+        // Clear any pending restart timeout
+        if (this.restartTimeout) {
+            clearTimeout(this.restartTimeout);
+            this.restartTimeout = null;
+        }
     }
     
     updateTranscriptionDisplay() {
-        const fullText = this.finalTranscript + this.interimTranscript;
+        let fullText = this.finalTranscript + this.interimTranscript;
+        
+        // Clean repetitive text for better user experience
+        if (fullText.trim()) {
+            fullText = this.cleanRepetitiveText(fullText);
+        }
+        
         this.transcriptionText.value = fullText;
         this.updateWordCount();
     }
@@ -221,16 +286,95 @@ class LiveSpeechApp {
     }
     
     clearTranscription() {
+        // Stop any ongoing recognition
+        if (this.isListening || this.autoRestartEnabled) {
+            this.autoRestartEnabled = false;
+            if (this.restartTimeout) {
+                clearTimeout(this.restartTimeout);
+                this.restartTimeout = null;
+            }
+            if (this.recognition && this.isListening) {
+                this.recognition.stop();
+            }
+        }
+        
         this.finalTranscript = '';
         this.interimTranscript = '';
         this.transcriptionText.value = '';
         this.updateWordCount();
         this.compareButton.style.display = 'none';
         this.diffComparison.style.display = 'none';
-        
-        if (this.isListening) {
-            this.recognition.stop();
+        this.updateStatus('ready', 'Hazır');
+    }
+    
+    cleanCurrentTranscription() {
+        if (!this.finalTranscript.trim()) {
+            alert('Temizlenecek metin bulunamadı.');
+            return;
         }
+        
+        const originalLength = this.finalTranscript.length;
+        this.finalTranscript = this.cleanRepetitiveText(this.finalTranscript);
+        this.interimTranscript = '';
+        
+        // Update display without cleaning again
+        this.transcriptionText.value = this.finalTranscript;
+        this.updateWordCount();
+        
+        // Show feedback
+        const cleanedLength = this.finalTranscript.length;
+        if (cleanedLength < originalLength) {
+            this.updateStatus('ready', `Temizlendi - ${originalLength - cleanedLength} karakter kaldırıldı`);
+            setTimeout(() => {
+                this.updateStatus('ready', 'Hazır');
+            }, 3000);
+        } else {
+            this.updateStatus('ready', 'Tekrar eden metin bulunamadı');
+            setTimeout(() => {
+                this.updateStatus('ready', 'Hazır');
+            }, 2000);
+        }
+    }
+    
+    // Helper function to clean repetitive text
+    cleanRepetitiveText(text) {
+        if (!text || text.trim().length === 0) return text;
+        
+        // First, normalize spaces and clean up
+        let cleaned = text.trim().replace(/\s+/g, ' ');
+        
+        // Split into words and process
+        const words = cleaned.split(/\s+/);
+        const cleanedWords = [];
+        let lastWord = '';
+        let consecutiveCount = 1;
+        
+        for (let i = 0; i < words.length; i++) {
+            const currentWord = words[i].toLowerCase();
+            
+            if (currentWord === lastWord) {
+                consecutiveCount++;
+                // Allow max 2 consecutive repetitions of the same word
+                if (consecutiveCount <= 2) {
+                    cleanedWords.push(words[i]);
+                }
+            } else {
+                cleanedWords.push(words[i]);
+                lastWord = currentWord;
+                consecutiveCount = 1;
+            }
+        }
+        
+        // Additional cleanup for common patterns
+        let result = cleanedWords.join(' ');
+        
+        // Remove obvious repetitive patterns like "word word word"
+        result = result.replace(/\b(\w+)(\s+\1){2,}/gi, '$1');
+        
+        // Clean up extra spaces
+        result = result.replace(/\s+/g, ' ').trim();
+        
+        return result;
     }
     
     compareWithSelectedText() {
