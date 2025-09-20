@@ -19,6 +19,14 @@ class SpeechToTextApp {
         this.processingStartTime = null;
         this.processingDuration = null;
         
+        // Replay functionality
+        this.lastRecordedBlob = null;
+        this.lastProcessedAudioData = null;
+        this.modelCache = new Map(); // Cache loaded models
+        this.resultCache = new Map(); // Cache processing results per recording per model
+        this.currentRecordingId = null; // Unique ID for current recording session
+        this.availableModels = ['Xenova/whisper-tiny', 'Xenova/whisper-base', 'Xenova/whisper-small'];
+        
         // Turkish test texts
         this.turkishTexts = [
             "Yapay zeka teknolojileri günümüzde hızla gelişiyor. Makine öğrenmesi algoritmaları sayesinde bilgisayarlar artık insan benzeri görevleri yerine getirebiliyor. Bu gelişmeler tıptan eğitime kadar birçok alanda devrim yaratıyor.",
@@ -57,6 +65,10 @@ class SpeechToTextApp {
         this.testTextSelect = document.getElementById('test-text-select');
         this.selectedTextDisplay = document.getElementById('selected-text');
         this.copyTextButton = document.getElementById('copy-text-button');
+        
+        // Replay section elements
+        this.replaySection = document.getElementById('replay-section');
+        this.replayButtons = document.querySelectorAll('.replay-button');
 
         // Restore saved model from localStorage if present and valid, otherwise use default
         try {
@@ -79,6 +91,11 @@ class SpeechToTextApp {
         this.modelSelect.addEventListener('change', () => this.onModelChange());
         this.testTextSelect.addEventListener('change', () => this.onTextSelection());
         this.copyTextButton.addEventListener('click', () => this.copySelectedText());
+        
+        // Add event listeners for replay buttons
+        this.replayButtons.forEach(button => {
+            button.addEventListener('click', (e) => this.replayWithModel(e.target.dataset.model));
+        });
     }
     
     async initializeModel() {
@@ -91,8 +108,17 @@ class SpeechToTextApp {
             this.recordButton.disabled = true;
             this.modelSelect.disabled = true;
             
-            // Load the selected multilingual Whisper model
-            this.pipe = await pipeline('automatic-speech-recognition', modelName);
+            // Check if model is already cached
+            if (this.modelCache.has(modelName)) {
+                this.pipe = this.modelCache.get(modelName);
+                console.log(`${modelName} loaded from cache`);
+            } else {
+                // Load the selected multilingual Whisper model
+                this.pipe = await pipeline('automatic-speech-recognition', modelName);
+                // Cache the loaded model
+                this.modelCache.set(modelName, this.pipe);
+                console.log(`${modelName} (multilingual) model loaded and cached`);
+            }
             
             this.isModelLoaded = true;
             this.updateStatus('ready', 'Kayda hazır');
@@ -100,7 +126,6 @@ class SpeechToTextApp {
             this.modelSelect.disabled = false;
             this.buttonText.textContent = 'Kaydı Başlat';
             
-            console.log(`${modelName} (multilingual) model loaded successfully`);
         } catch (error) {
             console.error('Error loading model:', error);
             this.updateStatus('error', 'Model yüklenirken hata oluştu');
@@ -174,6 +199,11 @@ class SpeechToTextApp {
             this.isRecording = true;
             this.recordingStartTime = Date.now(); // Start timing
             
+            // Clear previous replay section when starting new recording
+            if (this.replaySection) {
+                this.replaySection.style.display = 'none';
+            }
+            
             this.recordButton.classList.add('recording');
             this.buttonText.textContent = 'Kaydı Durdur';
             this.updateStatus('recording', 'Kaydediliyor... Durdurmak için tıklayın');
@@ -207,6 +237,13 @@ class SpeechToTextApp {
             // Create audio blob
             const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm;codecs=opus' });
             
+            // Store the recording for replay functionality
+            this.lastRecordedBlob = audioBlob;
+            
+            // Generate unique recording ID and clear old results
+            this.currentRecordingId = Date.now().toString();
+            this.resultCache.clear();
+            
             // Convert to ArrayBuffer
             const arrayBuffer = await audioBlob.arrayBuffer();
             
@@ -226,6 +263,9 @@ class SpeechToTextApp {
                 audioData = this.resampleAudio(audioData, audioBuffer.sampleRate, 16000);
             }
             
+            // Store processed audio data for replay
+            this.lastProcessedAudioData = audioData;
+            
             this.updateStatus('processing', 'Konuşma metne dönüştürülüyor...');
             
             // Run inference with Turkish language preference
@@ -240,15 +280,24 @@ class SpeechToTextApp {
             const transcription = result.text.trim();
             this.processingDuration = Date.now() - this.processingStartTime; // Calculate processing duration
             
+            // Cache the result for current model
+            this.resultCache.set(this.currentModelName, {
+                transcription: transcription,
+                processingDuration: this.processingDuration,
+                timestamp: Date.now()
+            });
+            
             if (transcription) {
                 this.transcriptionText.value = transcription;
                 this.updateStatus('ready', 'Transkripsiyon tamamlandı');
                 this.displayTimingInfo();
                 this.displayDiffComparison(transcription);
+                this.showReplaySection(); // Show replay buttons after successful transcription
             } else {
                 this.transcriptionText.value = 'Ses algılanamadı. Lütfen daha net konuşmayı deneyin.';
                 this.updateStatus('ready', 'Ses algılanamadı');
                 this.displayTimingInfo();
+                this.showReplaySection(); // Show replay buttons even if transcription failed
             }
             
         } catch (error) {
@@ -465,6 +514,138 @@ class SpeechToTextApp {
                 console.error('Text copying failed:', err);
                 alert('Metin kopyalanamadı. Lütfen manuel olarak seçin.');
             });
+        }
+    }
+    
+    showReplaySection() {
+        if (this.lastProcessedAudioData && this.replaySection) {
+            // Update button states - show cached results indicators
+            this.replayButtons.forEach(button => {
+                const buttonModel = button.dataset.model;
+                const modelSize = buttonModel.split('-').pop().toUpperCase();
+                
+                if (this.resultCache.has(buttonModel)) {
+                    const cached = this.resultCache.get(buttonModel);
+                    const duration = (cached.processingDuration / 1000).toFixed(1);
+                    button.textContent = `${modelSize} (${duration}s) ✓`;
+                    button.className = 'replay-button cached';
+                } else {
+                    button.textContent = `${modelSize} ile Test Et`;
+                    button.className = 'replay-button';
+                }
+                button.disabled = false;
+            });
+            this.replaySection.style.display = 'block';
+        }
+    }
+    
+    async replayWithModel(modelName) {
+        if (!this.lastProcessedAudioData) {
+            alert('Tekrar oynatılacak kayıt bulunamadı.');
+            return;
+        }
+        
+        const button = document.querySelector(`[data-model="${modelName}"]`);
+        const modelSize = modelName.split('-').pop().toUpperCase();
+        const originalText = button.textContent;
+        
+        // Check if we have cached results for this model and recording
+        if (this.resultCache.has(modelName)) {
+            const cached = this.resultCache.get(modelName);
+            // Display cached result
+            const resultText = `[${modelSize} Model - ${(cached.processingDuration/1000).toFixed(1)}s - Önbellekten]\n${cached.transcription}`;
+            this.transcriptionText.value = resultText;
+            this.displayDiffComparison(cached.transcription);
+            
+            // Update timing info to show this model's processing time
+            const timingInfoEl = document.getElementById('timing-info');
+            if (timingInfoEl && this.recordingDuration) {
+                const recordingSeconds = (this.recordingDuration / 1000).toFixed(1);
+                const processingSeconds = (cached.processingDuration / 1000).toFixed(1);
+                timingInfoEl.innerHTML = `
+                    <span class="timing-item">📼 Kayıt: ${recordingSeconds}s</span>
+                    <span class="timing-item">⚡ İşleme (${modelSize}): ${processingSeconds}s</span>
+                `;
+            }
+            return;
+        }
+        
+        // Need to process with this model
+        try {
+            button.disabled = true;
+            
+            // Load model if not cached
+            let pipeline_instance;
+            if (this.modelCache.has(modelName)) {
+                pipeline_instance = this.modelCache.get(modelName);
+                button.textContent = `${modelSize} İşleniyor...`;
+                button.className = 'replay-button processing';
+                // Force DOM update
+                await new Promise(resolve => requestAnimationFrame(resolve));
+            } else {
+                button.textContent = `${modelSize} İndiriliyor...`;
+                button.className = 'replay-button downloading';
+                // Force DOM update
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                
+                pipeline_instance = await pipeline('automatic-speech-recognition', modelName);
+                this.modelCache.set(modelName, pipeline_instance);
+                
+                button.textContent = `${modelSize} İşleniyor...`;
+                button.className = 'replay-button processing';
+                // Force DOM update
+                await new Promise(resolve => requestAnimationFrame(resolve));
+            }
+            
+            const startTime = Date.now();
+            
+            // Run inference with the selected model
+            const result = await pipeline_instance(this.lastProcessedAudioData, {
+                chunk_length_s: 30,
+                stride_length_s: 5,
+                language: 'turkish',
+                task: 'transcribe'
+            });
+            
+            const processingTime = Date.now() - startTime;
+            const transcription = result.text.trim();
+            
+            // Cache the result
+            this.resultCache.set(modelName, {
+                transcription: transcription,
+                processingDuration: processingTime,
+                timestamp: Date.now()
+            });
+            
+            // Display result in transcription area with model info
+            const resultText = `[${modelSize} Model - ${(processingTime/1000).toFixed(1)}s]\n${transcription}`;
+            this.transcriptionText.value = resultText;
+            
+            // Update diff comparison
+            this.displayDiffComparison(transcription);
+            
+            // Update timing info to show this model's processing time
+            const timingInfoEl = document.getElementById('timing-info');
+            if (timingInfoEl && this.recordingDuration) {
+                const recordingSeconds = (this.recordingDuration / 1000).toFixed(1);
+                const processingSeconds = (processingTime / 1000).toFixed(1);
+                timingInfoEl.innerHTML = `
+                    <span class="timing-item">📼 Kayıt: ${recordingSeconds}s</span>
+                    <span class="timing-item">⚡ İşleme (${modelSize}): ${processingSeconds}s</span>
+                `;
+            }
+            
+            // Update the replay section to reflect new cached result
+            this.showReplaySection();
+            
+        } catch (error) {
+            console.error(`Error with ${modelName}:`, error);
+            alert(`${modelName} modelinde hata oluştu.`);
+            // Restore button to original state on error
+            const modelSize = modelName.split('-').pop().toUpperCase();
+            button.textContent = `${modelSize} ile Test Et`;
+            button.className = 'replay-button';
+            button.disabled = false;
         }
     }
 }

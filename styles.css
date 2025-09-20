@@ -529,3 +529,89 @@ body {
     font-weight: 500;
     text-decoration: line-through;
 }
+
+/* Replay section styles */
+.replay-section {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.replay-header {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.replay-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.replay-button {
+    padding: 0.5rem 1rem;
+    border: 1px solid #6c5ce7;
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    color: white;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+}
+
+.replay-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #5f4fcf, #9085e8);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);
+}
+
+.replay-button:disabled {
+    background: #95a5a6;
+    border-color: #95a5a6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.replay-button.cached {
+    background: linear-gradient(135deg, #00b894, #00cec9);
+    border-color: #00b894;
+}
+
+.replay-button.cached:hover:not(:disabled) {
+    background: linear-gradient(135deg, #00a085, #00b7bd);
+}
+
+.replay-button.downloading {
+    background: linear-gradient(135deg, #e74c3c, #fd79a8) !important;
+    border-color: #e74c3c !important;
+    animation: pulse 1.5s infinite;
+}
+
+.replay-button.processing {
+    background: linear-gradient(135deg, #f39c12, #fdcb6e) !important;
+    border-color: #f39c12 !important;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
