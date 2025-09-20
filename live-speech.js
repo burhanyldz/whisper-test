@@ -31,7 +31,19 @@ class LiveSpeechApp {
         ];
         
         this.initializeElements();
+        this.loadAutoRestartPreference();
         this.initializeSpeechRecognition();
+    }
+    
+    loadAutoRestartPreference() {
+        try {
+            const savedAutoRestart = localStorage.getItem('live_speech_auto_restart');
+            if (savedAutoRestart !== null) {
+                this.autoRestartToggle.checked = savedAutoRestart === 'true';
+            }
+        } catch (e) {
+            console.warn('Could not load auto-restart preference:', e);
+        }
     }
     
     initializeElements() {
@@ -44,7 +56,7 @@ class LiveSpeechApp {
         this.selectedTextDisplay = document.getElementById('selected-text');
         this.copyTextButton = document.getElementById('copy-text-button');
         this.clearButton = document.getElementById('clear-button');
-        this.cleanRepetitionsButton = document.getElementById('clean-repetitions-button');
+        this.autoRestartToggle = document.getElementById('auto-restart-toggle');
         this.compareButton = document.getElementById('compare-button');
         this.wordCount = document.getElementById('word-count');
         this.diffComparison = document.getElementById('diff-comparison');
@@ -54,7 +66,7 @@ class LiveSpeechApp {
         this.testTextSelect.addEventListener('change', () => this.onTextSelection());
         this.copyTextButton.addEventListener('click', () => this.copySelectedText());
         this.clearButton.addEventListener('click', () => this.clearTranscription());
-        this.cleanRepetitionsButton.addEventListener('click', () => this.cleanCurrentTranscription());
+        this.autoRestartToggle.addEventListener('change', () => this.onAutoRestartToggle());
         this.compareButton.addEventListener('click', () => this.compareWithSelectedText());
     }
     
@@ -153,10 +165,12 @@ class LiveSpeechApp {
                 this.restartTimeout = null;
             }
             
-            // Auto-restart if enabled and user hasn't manually stopped
-            if (this.autoRestartEnabled && this.speechButton.classList.contains('listening')) {
+            // Auto-restart if enabled, user hasn't manually stopped, and toggle is checked
+            if (this.autoRestartEnabled && 
+                this.speechButton.classList.contains('listening') && 
+                this.autoRestartToggle.checked) {
                 this.restartTimeout = setTimeout(() => {
-                    if (this.autoRestartEnabled) {
+                    if (this.autoRestartEnabled && this.autoRestartToggle.checked) {
                         console.log('Auto-restarting speech recognition...');
                         this.startListening();
                     }
@@ -164,6 +178,7 @@ class LiveSpeechApp {
                 return;
             }
             
+            // If auto-restart is disabled or toggle is off, reset button state
             this.resetSpeechButton();
             
             if (this.finalTranscript.trim()) {
@@ -200,8 +215,8 @@ class LiveSpeechApp {
                 this.resetSpeechButton();
             }
         } else {
-            // Start listening and enable auto-restart for mobile
-            this.autoRestartEnabled = true;
+            // Start listening and enable auto-restart only if toggle is checked
+            this.autoRestartEnabled = this.autoRestartToggle.checked;
             this.startListening();
         }
     }
@@ -229,13 +244,7 @@ class LiveSpeechApp {
     }
     
     updateTranscriptionDisplay() {
-        let fullText = this.finalTranscript + this.interimTranscript;
-        
-        // Clean repetitive text for better user experience
-        if (fullText.trim()) {
-            fullText = this.cleanRepetitiveText(fullText);
-        }
-        
+        const fullText = this.finalTranscript + this.interimTranscript;
         this.transcriptionText.value = fullText;
         this.updateWordCount();
     }
@@ -307,74 +316,20 @@ class LiveSpeechApp {
         this.updateStatus('ready', 'Hazır');
     }
     
-    cleanCurrentTranscription() {
-        if (!this.finalTranscript.trim()) {
-            alert('Temizlenecek metin bulunamadı.');
-            return;
+    onAutoRestartToggle() {
+        // Save the preference to localStorage
+        try {
+            localStorage.setItem('live_speech_auto_restart', this.autoRestartToggle.checked);
+        } catch (e) {
+            console.warn('Could not save auto-restart preference:', e);
         }
         
-        const originalLength = this.finalTranscript.length;
-        this.finalTranscript = this.cleanRepetitiveText(this.finalTranscript);
-        this.interimTranscript = '';
-        
-        // Update display without cleaning again
-        this.transcriptionText.value = this.finalTranscript;
-        this.updateWordCount();
-        
-        // Show feedback
-        const cleanedLength = this.finalTranscript.length;
-        if (cleanedLength < originalLength) {
-            this.updateStatus('ready', `Temizlendi - ${originalLength - cleanedLength} karakter kaldırıldı`);
-            setTimeout(() => {
-                this.updateStatus('ready', 'Hazır');
-            }, 3000);
-        } else {
-            this.updateStatus('ready', 'Tekrar eden metin bulunamadı');
-            setTimeout(() => {
-                this.updateStatus('ready', 'Hazır');
-            }, 2000);
+        // If currently listening and auto-restart was disabled, don't change current session
+        // The change will take effect on next start
+        if (!this.autoRestartToggle.checked && this.autoRestartEnabled) {
+            // Don't immediately disable, but it won't restart next time it ends
+            console.log('Auto-restart will be disabled after current session ends');
         }
-    }
-    
-    // Helper function to clean repetitive text
-    cleanRepetitiveText(text) {
-        if (!text || text.trim().length === 0) return text;
-        
-        // First, normalize spaces and clean up
-        let cleaned = text.trim().replace(/\s+/g, ' ');
-        
-        // Split into words and process
-        const words = cleaned.split(/\s+/);
-        const cleanedWords = [];
-        let lastWord = '';
-        let consecutiveCount = 1;
-        
-        for (let i = 0; i < words.length; i++) {
-            const currentWord = words[i].toLowerCase();
-            
-            if (currentWord === lastWord) {
-                consecutiveCount++;
-                // Allow max 2 consecutive repetitions of the same word
-                if (consecutiveCount <= 2) {
-                    cleanedWords.push(words[i]);
-                }
-            } else {
-                cleanedWords.push(words[i]);
-                lastWord = currentWord;
-                consecutiveCount = 1;
-            }
-        }
-        
-        // Additional cleanup for common patterns
-        let result = cleanedWords.join(' ');
-        
-        // Remove obvious repetitive patterns like "word word word"
-        result = result.replace(/\b(\w+)(\s+\1){2,}/gi, '$1');
-        
-        // Clean up extra spaces
-        result = result.replace(/\s+/g, ' ').trim();
-        
-        return result;
     }
     
     compareWithSelectedText() {
