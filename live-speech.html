@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canlı Konuşma → Metin (Web Speech API)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="live-speech.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Canlı Türkçe Konuşma Tanıma</h1>
+            <p class="subtitle">Web Speech API ile gerçek zamanlı konuşma → metin</p>
+        </header>
+        
+        <main class="main-content">
+            <div class="top-controls-grid">
+                
+                <div class="language-selection-section">
+                    <label for="language-select" class="section-title">Dil Seçimi</label>
+                    <select id="language-select" class="language-select">
+                        <option value="tr-TR">Türkçe</option>
+                        <option value="en-US">English (US)</option>
+                        <option value="en-GB">English (UK)</option>
+                        <option value="de-DE">Deutsch</option>
+                        <option value="fr-FR">Français</option>
+                        <option value="es-ES">Español</option>
+                        <option value="it-IT">Italiano</option>
+                        <option value="pt-BR">Português (Brasil)</option>
+                        <option value="ru-RU">Русский</option>
+                        <option value="ja-JP">日本語</option>
+                        <option value="ko-KR">한국어</option>
+                        <option value="zh-CN">中文 (简体)</option>
+                        <option value="ar-SA">العربية</option>
+                    </select>
+                </div>
+                
+                <div class="controls-section">
+                    <button id="speech-button" class="speech-button" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-mic-fill" viewBox="0 0 16 16">
+                            <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0z"/>
+                            <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5"/>
+                        </svg>
+                        <span class="button-text">Hazırlanıyor...</span>
+                    </button>
+                    
+                    <div class="status-indicator">
+                        <div class="status-dot"></div>
+                        <span class="status-text">Başlatılıyor...</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="content-grid">
+                <div class="test-text-section">
+                    <label for="test-text-select" class="section-title">Türkçe Test Metinleri</label>
+                    <select id="test-text-select" class="text-select">
+                        <option value="">Okunacak bir metin seçin...</option>
+                        <option value="0">Teknoloji ve Gelecek</option>
+                        <option value="1">Doğa ve Çevre</option>
+                        <option value="2">Kültür ve Sanat</option>
+                        <option value="3">Spor ve Sağlık</option>
+                        <option value="4">Eğitim ve Öğrenme</option>
+                        <option value="5">Yemek ve Mutfak</option>
+                        <option value="6">Seyahat ve Keşif</option>
+                        <option value="7">Müzik ve Dans</option>
+                        <option value="8">Bilim ve Araştırma</option>
+                        <option value="9">Tarih ve Medeniyet</option>
+                        <option value="10">Aile ve Dostluk</option>
+                        <option value="11">İş ve Kariyer</option>
+                        <option value="12">Hobiler ve İlgi Alanları</option>
+                        <option value="13">Kitap ve Edebiyat</option>
+                        <option value="14">Mevsimler ve Hava</option>
+                        <option value="15">Şehir Hayatı</option>
+                        <option value="16">Ulaşım ve Trafik</option>
+                        <option value="17">Alışveriş ve Tüketim</option>
+                        <option value="18">Sosyal Medya</option>
+                        <option value="19">Rüyalar ve Hayal</option>
+                    </select>
+                    <div id="selected-text" class="selected-text-display">
+                        <p class="placeholder-text">Yukarıdan bir metin seçin ve yüksek sesle okuyun.</p>
+                    </div>
+                    <button id="copy-text-button" class="copy-button" style="display: none;">Metni Kopyala</button>
+                </div>
+                
+                <div class="transcription-section">
+                    <label for="transcription-text" class="section-title">Canlı Konuşma Çıktısı</label>
+                    <div class="transcription-controls">
+                        <button id="clear-button" class="clear-button">Temizle</button>
+                        <button id="compare-button" class="compare-button" style="display: none;">Karşılaştır</button>
+                    </div>
+                    <textarea 
+                        id="transcription-text" 
+                        class="transcription-textarea"
+                        placeholder="Konuştukça buraya yazılacak..."
+                        readonly
+                    ></textarea>
+                    <div id="word-count" class="word-count">Kelime sayısı: 0</div>
+                    <div id="diff-comparison" class="diff-comparison" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <h3>Hızlı Rehber</h3>
+                <p><strong>1.</strong> Dil ve metni seçin → <strong>2.</strong> Mikrofonu başlatın → <strong>3.</strong> Konuşmaya başlayın → <strong>4.</strong> Canlı transkripsiyon izleyin</p>
+                <div class="browser-support">
+                    <small><strong>Not:</strong> Web Speech API Chrome, Edge ve Safari tarayıcılarında desteklenir. İnternet bağlantısı gereklidir.</small>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="live-speech.js"></script>
+</body>
+</html>

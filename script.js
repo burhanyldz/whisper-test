@@ -377,9 +377,11 @@ class SpeechToTextApp {
     }
     
     generateDiffHtml(original, transcribed) {
-        // Simple word-based diff algorithm
-        const originalWords = original.toLowerCase().split(/\s+/);
-        const transcribedWords = transcribed.toLowerCase().split(/\s+/);
+        // Normalize text: remove punctuation and convert to lowercase
+        const normalizePunctuation = (text) => text.toLowerCase().replace(/[.,;:!?'"()[\]{}\-–—]/g, '').replace(/\s+/g, ' ').trim();
+        
+        const originalWords = normalizePunctuation(original).split(/\s+/);
+        const transcribedWords = normalizePunctuation(transcribed).split(/\s+/);
         
         // Create a simple diff using word matching
         let result = '';
@@ -442,8 +444,8 @@ class SpeechToTextApp {
     }
     
     calculateAccuracyPercentage(original, transcribed) {
-        // Normalize both texts for comparison (lowercase, remove extra spaces)
-        const normalizeText = (text) => text.toLowerCase().replace(/\s+/g, ' ').trim();
+        // Normalize both texts for comparison (lowercase, remove punctuation and extra spaces)
+        const normalizeText = (text) => text.toLowerCase().replace(/[.,;:!?'"()[\]{}\-–—]/g, '').replace(/\s+/g, ' ').trim();
         const originalNormalized = normalizeText(original);
         const transcribedNormalized = normalizeText(transcribed);
         
